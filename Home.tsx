@@ -18,9 +18,11 @@ import {
   Square,
   Trash2,
   Undo,
+  Upload,
   X,
 } from 'lucide-react';
-import {useCallback, useEffect, useRef, useState} from 'react';
+// FIX: Import React to make the 'React' namespace available for types.
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 
 const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
 
@@ -83,6 +85,7 @@ const PromptHistoryModal = ({history, onRestore, onClose}) => (
 
 export default function Home() {
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
   const backgroundImageRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [penColor, setPenColor] = useState('#000000');
@@ -266,6 +269,24 @@ export default function Home() {
     setShowHistoryModal(false);
   };
   
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new window.Image();
+        img.onload = () => {
+            backgroundImageRef.current = img;
+            drawImageToCanvas();
+            saveCanvasState();
+        };
+        img.src = event.target.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canvasRef.current || isLoading) return;
@@ -363,12 +384,21 @@ export default function Home() {
               <ToolButton icon={<Undo className="w-5 h-5" />} label="Undo" onClick={undo} disabled={historyIndex <= 0} active={false} />
               <ToolButton icon={<Redo className="w-5 h-5" />} label="Redo" onClick={redo} disabled={historyIndex >= canvasHistory.length - 1} active={false} />
               <ToolButton icon={<History className="w-5 h-5" />} label="Prompt History" onClick={() => setShowHistoryModal(true)} active={false} />
+              <ToolButton icon={<Upload className="w-5 h-5" />} label="Upload Image" onClick={() => fileInputRef.current?.click()} active={false} />
               <ToolButton icon={<Download className="w-5 h-5" />} label="Save Drawing" onClick={saveDrawing} active={false} />
               <ToolButton icon={<Trash2 className="w-5 h-5" />} label="Clear Canvas" onClick={clearCanvas} active={false} />
             </div>
           </div>
 
           <div className="w-full mb-6">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              className="hidden"
+              aria-label="Upload image"
+            />
             <canvas
               ref={canvasRef} width={960} height={540}
               onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
